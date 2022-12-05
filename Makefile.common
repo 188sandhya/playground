@@ -1,0 +1,8 @@
+
+GO_BIN=GO111MODULE=on go
+
+GINKGO_BIN=GO111MODULE=on ginkgo
+GINKGO_FLAGS=-tags unitTests -randomizeAllSpecs
+
+FAST_BUILD_ARG=--build-arg BUILD_MODE=blitz
+DEBUG_BUILD_ARG=--build-arg BUILD_MODE=debug
