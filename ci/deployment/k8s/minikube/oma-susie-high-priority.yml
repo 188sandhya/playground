@@ -1,0 +1,7 @@
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: oma-susie-high-priority
+value: 400000000
+globalDefault: false
+description: "This priority class should be used for high priority OMA susie job pods only."

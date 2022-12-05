@@ -1,0 +1,66 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kibana
+  namespace: minikube
+spec:
+  replicas: 1
+  selector: 
+    matchLabels:
+      k8s-app: kibana
+  template:
+    metadata:
+      labels:
+        name: kibana
+        k8s-app: kibana
+    spec:
+      containers:
+      - name: kibana
+        image: eb2/kibana:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 5601
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kibana
+  namespace: minikube
+spec:
+  ports:
+    - name: ui
+      port: 5601
+  selector:
+    name: kibana
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  name: kibana
+  namespace: minikube
+spec:
+  routes:
+  - kind: Rule
+    match: PathPrefix(`/kibana`)
+    middlewares:
+    - name: kibana
+      namespace: minikube
+    priority: 0
+    services:
+    - kind: Service
+      name: kibana
+      namespace: minikube
+      port: 5601
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: kibana
+  namespace: minikube
+spec:
+  stripPrefix:
+    prefixes:
+    - /kibana

@@ -1,0 +1,123 @@
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: traefik
+  namespace: minikube
+  labels:
+    app.kubernetes.io/name: traefik
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traefik
+  namespace: minikube
+  labels:
+    app.kubernetes.io/name: traefik
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: traefik
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: traefik
+    spec:
+      serviceAccountName: traefik
+      terminationGracePeriodSeconds: 60
+      containers:
+      - image: "traefik:2.4.8"
+        name: traefik
+        ports:
+        - name: "web"
+          containerPort: 80
+          protocol: "TCP"
+        - name: "admin"
+          containerPort: 9000
+          protocol: "TCP"
+        volumeMounts:
+          - name: data
+            mountPath: /data
+          - name: tmp
+            mountPath: /tmp
+        args:
+          - "--api"
+          - "--log.level=DEBUG"
+          - "--global.checknewversion"
+          - "--global.sendanonymoususage"
+          - "--entryPoints.traefik.address=:9000/tcp"
+          - "--entryPoints.web.address=:80/tcp"
+          - "--api.dashboard=true"
+          - "--ping=true"
+          - "--metrics.prometheus=true"
+          - "--metrics.prometheus.entrypoint=metrics"
+          - "--providers.kubernetescrd"
+          - "--providers.kubernetesingress"
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+      securityContext:
+        fsGroup: 65532
+---
+apiVersion: v1
+kind: List
+metadata:
+  name: traefik
+  namespace: minikube
+items:
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: traefik
+      labels:
+        app.kubernetes.io/name: traefik
+    spec:
+      type: NodePort
+      selector:
+        app.kubernetes.io/name: traefik
+      ports:
+      - port: 80
+        name: web
+        nodePort: 30000
+        protocol: "TCP"
+      - port: 9000
+        name: admin
+        nodePort: 30001
+        protocol: "TCP"
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: traefik
+  namespace: minikube
+spec:
+  type: ExternalName
+  externalName: traefik.kube-system.svc.cluster.local
+  ports:
+  - port: 80
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: traefik-dashboard
+  namespace: minikube
+  labels:
+    app.kubernetes.io/name: traefik
+spec:
+  entryPoints:
+    - admin
+  routes:
+  - match: PathPrefix(`/dashboard`) || PathPrefix(`/api`)
+    kind: Rule
+    services:
+    - name: api@internal
+      kind: TraefikService
+---

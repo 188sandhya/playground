@@ -1,0 +1,43 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elastic
+  namespace: minikube
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: elastic
+  template:
+    metadata:
+      labels:
+        name: elastic
+        k8s-app: elastic
+    spec:
+      containers:
+      - name: elastic
+        image: eb2/elastic:latest
+        imagePullPolicy: Never
+        ports:
+        - name: api
+          containerPort: 9200
+        - name: com
+          containerPort: 9300
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elastic
+  namespace: minikube
+spec:
+  ports:
+    - protocol: TCP
+      port: 9200
+      nodePort: 30008
+      name: api
+    - port: 9300
+      name: com
+  selector:
+    name: elastic
+  type: NodePort

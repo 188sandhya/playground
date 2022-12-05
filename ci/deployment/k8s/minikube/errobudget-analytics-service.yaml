@@ -1,0 +1,12 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: "analytics"
+  namespace: "minikube"
+  annotations:
+    prometheus.io/scrape: 'true'
+spec:
+  selector:
+    app: "analytics"
+  ports:
+    - port: 1234

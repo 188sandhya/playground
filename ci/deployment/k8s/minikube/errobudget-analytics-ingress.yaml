@@ -1,0 +1,31 @@
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  name: analytics-ingress
+  namespace: minikube
+spec:
+  entryPoints: []
+  routes:
+  - kind: Rule
+    match: PathPrefix(`/analytics`)
+    middlewares:
+    - name: analytics
+      namespace: minikube
+    priority: 0
+    services:
+    - kind: Service
+      name: analytics
+      namespace: minikube
+      port: 1234
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: analytics
+  namespace: minikube
+spec:
+  stripPrefix:
+    prefixes:
+    - /analytics
