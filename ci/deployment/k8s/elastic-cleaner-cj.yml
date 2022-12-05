@@ -1,0 +1,49 @@
+---
+# Source: elastic-cleaner-chart/templates/deployment.yaml
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: elastic-cleaner
+  namespace: minikube
+spec:
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  schedule: "42 1 4 * *"
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: "elastic-cleaner"
+            vertical: "errorbudget"
+            service: "dx.errorbudget.elasticcleaner"
+            solution: "dx"
+            solution_id: "S00332"
+            marc_id: "A1435"
+            version: latest
+            kind: cronjob
+        spec:    
+          containers:
+          - name: elastic-cleaner
+            image: registry.metroscales.io/errorbudget/alpine:3.11-curl
+            imagePullPolicy: "IfNotPresent"
+            command: ["/bin/sh"]
+            args:
+              - "-c"
+              - 'timestamp90daysago=$((`date "+%s"` - 7776000)); pattern=`date -d "@$timestamp90daysago" +%Y-%m`; indices_prefixes="oma-eb-data- oma-ru-node- oma-ru-deployment-"; for prefix in ${indices_prefixes}; do url="${ELASTIC_URL}/${prefix}${pattern}"; echo ${url}; http_code=$(curl -s -o ${prefix} --write-out "%{http_code}" -X DELETE "${url}?pretty"); if [ $http_code != "404" ]; then cat ${prefix}; else echo "index in ${url} does not exist"; fi; sleep 10; done'
+            env:
+              - name: DD_ENV
+                value: "minikube"
+              - name: DD_SERVICE
+                value: "dx.errorbudget.elasticcleaner"
+              - name: DD_VERSION
+                value: latest
+              - name: DD_TAGS
+                value: "marc_id:A1435,solution:dx,solution_id:S00332,vertical:errorbudget,service:dx.errorbudget.elasticcleaner"
+              - name: ELASTIC_URL
+                value: http://elastic:9200
+          imagePullSecrets:
+           - name: dockerregistryharbor
+          terminationGracePeriodSeconds: 30
+          restartPolicy: Never

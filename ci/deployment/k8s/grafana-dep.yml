@@ -1,0 +1,202 @@
+---
+# Source: grafana-chart/templates/service.yaml
+kind: Service
+apiVersion: v1
+metadata:
+  name: grafana
+  namespace: minikube
+  annotations:
+    prometheus.io/scrape: 'true'
+spec:
+  selector:
+    app: grafana
+  ports:
+    - port: 3000
+---
+# Source: grafana-chart/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: minikube
+spec:
+  selector:
+    matchLabels:
+      app: grafana
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: "grafana"
+        vertical: "errorbudget"
+        service: "dx.errorbudget.grafana"
+        solution: "dx"
+        solution_id: "S00332"
+        marc_id: "A1435"
+        version: latest
+        kind: deployment
+    spec:
+      containers:
+      - name: grafana
+        image: eb2/eb-grafana
+        imagePullPolicy: "Never"
+        env:
+          - name: GF_DATABASE_URL
+            valueFrom:
+              secretKeyRef:
+                name: grafana-gcp-secrets
+                key: POSTGRES_URL
+          - name: GF_SECURITY_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: grafana-gcp-secrets
+                key: GRAFANA_SECRET
+          - name: GF_DASHBOARDS_VERSIONS_TO_KEEP
+            value: "5"
+          - name: GF_PANELS_DISABLE_SANITIZE_HTML
+            value: "true"
+          - name: GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS
+            value: "scripted-datasource,scripted-queries,oma-widgets,datadog,devops-metrics-plugin,grafana-eb-app,grafana-github-datasource,echarts-panel,grafana-metro-app,oma-slo-plugin,grafana-tutorial-app,doitintl-bigquery-datasource,grafana-cf-app"
+          - name: GF_AUTH_GENERIC_OAUTH_ENABLED
+            value: "true"
+          - name: GF_AUTH_OAUTH_AUTO_LOGIN
+            value: "true"
+          - name: GF_AUTH_GENERIC_OAUTH_NAME
+            value: "IDAM"
+          - name: GF_AUTH_GENERIC_OAUTH_SCOPES
+            value: "openid"
+          - name: GF_AUTH_GENERIC_OAUTH_TLS_SKIP_VERIFY_INSECURE
+            value: "true"
+          - name: GF_AUTH_GENERIC_OAUTH_AUTH_URL
+            value: "https://idam.metrosystems.net/web/Signin?realm_id=PENG_2TR_RLM&user_type=EMP"
+          - name: GF_AUTH_GENERIC_OAUTH_TOKEN_URL
+            value: "https://idam.metrosystems.net/authorize/api/oauth2/access_token"
+          - name: GF_AUTH_GENERIC_OAUTH_API_URL
+            value: "http://grafana-controller:8000/v1/configure_user"
+          - name: GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP
+            value: "false"
+          - name: GF_UNIFIED_ALERTING_ENABLED
+            value: "false"
+          - name: GF_ALERTING_ENABLED
+            value: "false"
+          - name: GF_SERVER_ROOT_URL
+            value: "http://192.168.99.100:30000"
+          - name: GF_DEFAULT_APP_MODE
+            value: "development"
+          - name: GF_LOG_LEVEL
+            value: "debug"
+          - name: GF_LIVE_MAX_CONNECTIONS
+            value: "0"
+          - name: GF_SERVER_ENABLE_GZIP
+            value: "true"
+          - name: GF_SMTP_ENABLED
+            value: "true"
+          - name: GF_SMTP_HOST
+            value: "viruswall.mgi.de:25"
+          - name: GF_SMTP_FROM_ADDRESS
+            value: "oma@metro.digital"
+          - name: GF_SMTP_FROM_NAME
+            value: "OMA Tool"
+          - name: GF_DATABASE_MAX_IDLE_CONN
+            value: "10"
+          - name: GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH
+            value: "/etc/grafana/provisioning/dashboards/home.json"
+          - name: DD_ENV
+            value: "minikube"
+          - name: DD_SERVICE
+            value: "dx.errorbudget.grafana"
+          - name: DD_VERSION
+            value: latest
+          - name: DD_TAGS
+            value: "marc_id:A1435,solution:dx,solution_id:S00332,vertical:errorbudget,service:dx.errorbudget.grafana"
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /api/health
+            port: 3000
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /api/health
+            port: 3000
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        envFrom:
+        - secretRef:
+            name: grafana-application-secrets
+        - secretRef:
+            name: grafana-gcp-secrets
+        ports:
+        - containerPort: 3000
+      initContainers:
+        - name: createdb
+          image: eb2/eb-createdb
+          imagePullPolicy: "Never"
+          env:
+            - name: DD_ENV
+              value: "minikube"
+            - name: DD_SERVICE
+              value: "dx.errorbudget.grafana"
+            - name: DD_VERSION
+              value: latest
+            - name: DD_TAGS
+              value: "marc_id:A1435,solution:dx,solution_id:S00332,vertical:errorbudget,service:dx.errorbudget.grafana"
+          command: ["bash", "create-db.sh"]
+          envFrom:
+          - secretRef:
+              name: grafana-gcp-secrets
+      imagePullSecrets:
+       - name: dockerregistryharbor
+      terminationGracePeriodSeconds: 30
+      priorityClassName: oma-high-priority
+---
+# Source: grafana-chart/templates/ingress-external.yaml
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  name: grafana-external
+  namespace: minikube
+spec:
+  entryPoints: []
+  routes:
+  - kind: Rule
+    match: PathPrefix(`/`)
+    middlewares: []
+    priority: 0
+    services:
+    - kind: Service
+      name: grafana
+      namespace: minikube
+      port: 3000
+---
+# Source: grafana-chart/templates/ingress.yaml
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  name: grafana-ingress
+  namespace: minikube
+spec:
+  entryPoints: []
+  routes:
+  - kind: Rule
+    match: PathPrefix(`/`)      
+    middlewares: []
+    priority: 0
+    services:
+    - kind: Service
+      name: grafana
+      namespace: minikube
+      port: 3000

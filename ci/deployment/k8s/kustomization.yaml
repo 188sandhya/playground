@@ -1,0 +1,3 @@
+resources:
+- elastic-cleaner-cj.yml
+- grafana-dep.yml

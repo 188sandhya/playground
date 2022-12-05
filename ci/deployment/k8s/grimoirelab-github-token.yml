@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Secret
+metadata:
+    namespace: minikube
+    name: grimoirelab-github-token
+type: Opaque
+data:
+    token: YjU2YjFkZmQ3NTQxZDNmNDFkMTlmOTIxMTVkOWVhOWVmMGE5NTRkYQ==
